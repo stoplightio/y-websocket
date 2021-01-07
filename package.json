@@ -4,7 +4,7 @@
   "description": "Websockets provider for Yjs",
   "main": "./dist/y-websocket.cjs",
   "module": "./src/y-websocket.js",
-  "types": "./dist/src/y-websocket.d.ts",
+  "types": "./src/y-websocket.d.ts",
   "sideEffects": false,
   "funding": {
     "type": "GitHub Sponsors ❤",
@@ -15,7 +15,7 @@
     "dist": "rm -rf dist && rollup -c && tsc",
     "lint": "standard && tsc",
     "test": "npm run lint",
-    "preversion": "npm run lint && npm run dist && test -e dist/src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
+    "preversion": "npm run lint && npm run dist && test -e src/y-websocket.d.ts && test -e dist/y-websocket.cjs"
   },
   "bin": {
     "y-websocket-server": "./bin/server.js"
@@ -46,9 +46,8 @@
   },
   "dependencies": {
     "lib0": "^0.2.31",
-    "y-leveldb": "^0.1.0",
     "lodash.debounce": "^4.0.8",
-    "y-protocols": "^1.0.0"
+    "y-protocols": "^1.0.1"
   },
   "devDependencies": {
     "rollup": "^1.32.1",
@@ -61,6 +60,7 @@
     "yjs": "^13.0.0"
   },
   "optionalDependencies": {
-    "ws": "^6.2.1"
+    "ws": "^6.2.1",
+    "y-leveldb": "^0.1.0"
   }
 }
