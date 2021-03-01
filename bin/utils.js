@@ -1,4 +1,6 @@
 // @ts-nocheck
+/// <reference lib="dom" />
+
 const Y = require('yjs')
 const syncProtocol = require('y-protocols/dist/sync.cjs')
 const awarenessProtocol = require('y-protocols/dist/awareness.cjs')
@@ -99,7 +101,7 @@ class WSSharedDoc extends Y.Doc {
     this.mux = mutex.createMutex()
     /**
      * Maps from conn to set of controlled user ids. Delete all user ids from awareness when this conn is closed
-     * @type {Map<Object, Set<number>>}
+     * @type {Map<WebSocket, Set<number>>}
      */
     this.conns = new Map()
     /**
@@ -148,6 +150,11 @@ class WSSharedDoc extends Y.Doc {
     }
   }
 }
+
+/**
+ * @type {WSSharedDoc}
+ */
+exports.WSSharedDoc = WSSharedDoc
 
 /**
  * Gets a Y.Doc by name, whether in memory or on disk
