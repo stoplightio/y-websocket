@@ -105,7 +105,7 @@ class WSSharedDoc extends Y.Doc {
      */
     this.conns = new Map()
     /**
-     * @type {awarenessProtocol.Awareness}
+     * @type {import('y-protocols/awareness.js').Awareness}
      */
     this.awareness = new awarenessProtocol.Awareness(this)
     this.awareness.setLocalState(null)
