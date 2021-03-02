@@ -28,7 +28,7 @@ const wsReadyStateClosed = 3 // eslint-disable-line
 const gcEnabled = process.env.GC !== 'false' && process.env.GC !== '0'
 const persistenceDir = process.env.YPERSISTENCE
 /**
- * @type {{bindState: function(string,WSSharedDoc):void|Promise<void>, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
+ * @type {{bindState: function(string,WSSharedDoc,WebSocket):void|Promise<void>, writeState:function(string,WSSharedDoc):Promise<any>, provider: any}|null}
  */
 let persistence = null
 if (typeof persistenceDir === 'string') {
@@ -52,7 +52,7 @@ if (typeof persistenceDir === 'string') {
 }
 
 /**
- * @param {{bindState: function(string,WSSharedDoc):void,
+ * @param {{bindState: function(string,WSSharedDoc,WebSocket):Promise<void>,
  * writeState:function(string,WSSharedDoc):Promise<any>,provider:any}|null} persistence_
  */
 exports.setPersistence = persistence_ => {
@@ -60,8 +60,8 @@ exports.setPersistence = persistence_ => {
 }
 
 /**
- * @return {null|{bindState: function(string,WSSharedDoc):void,
-  * writeState:function(string,WSSharedDoc):Promise<any>}|null} used persistence layer
+ * @return {null|{bindState: function(string,WSSharedDoc,WebSocket):Promise<void>,
+  * writeState:function(string,WSSharedDoc):Promise<any>,provider:any}|null} used persistence layer
   */
 exports.getPersistence = () => persistence
 
@@ -94,8 +94,9 @@ const updateHandler = (update, origin, doc) => {
 class WSSharedDoc extends Y.Doc {
   /**
    * @param {string} name
+   * @param {WebSocket} [conn]
    */
-  constructor (name) {
+  constructor (name, conn) {
     super({ gc: gcEnabled })
     this.name = name
     this.mux = mutex.createMutex()
@@ -146,7 +147,7 @@ class WSSharedDoc extends Y.Doc {
     }
 
     if (persistence !== null) {
-      this.whenSynced = persistence.bindState(name, this)
+      this.whenSynced = persistence.bindState(name, this, conn)
     }
   }
 }
@@ -161,10 +162,11 @@ exports.WSSharedDoc = WSSharedDoc
  *
  * @param {string} docname - the name of the Y.Doc to find or create
  * @param {boolean} gc - whether to allow gc on the doc (applies only when created)
+ * @param {WebSocket} conn - (applies only when created)
  * @return {WSSharedDoc}
  */
-const getYDoc = (docname, gc = true) => map.setIfUndefined(docs, docname, () => {
-  const doc = new WSSharedDoc(docname)
+const getYDoc = (docname, gc = true, conn) => map.setIfUndefined(docs, docname, () => {
+  const doc = new WSSharedDoc(docname, conn)
   doc.gc = gc
   docs.set(docname, doc)
   return doc
@@ -253,7 +255,7 @@ const pingTimeout = 30000
 exports.setupWSConnection = async (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
   // get doc, initialize if it does not exist yet
-  const doc = getYDoc(docName, gc)
+  const doc = getYDoc(docName, gc, conn)
   doc.conns.set(conn, new Set())
 
   // listen and reply to events
