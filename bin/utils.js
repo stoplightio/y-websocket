@@ -191,9 +191,16 @@ const messageListener = async (conn, doc, message) => {
         await doc.whenSynced
       }
       encoding.writeVarUint(encoder, messageSync)
-      readSyncMessage(decoder, encoder, doc, conn.readOnly, null)
+      const messageType = readSyncMessage(decoder, encoder, doc, conn.readOnly, null)
       if (encoding.length(encoder) > 1) {
         send(doc, conn, encoding.toUint8Array(encoder))
+      }
+      if (typeof conn.reportStats === 'function' && messageType !== void 0) {
+        conn.reportStats({
+          docName: doc.name,
+          messageType: messageType,
+          bytes: message.length,
+        })
       }
       break
     case messageAwareness: {
