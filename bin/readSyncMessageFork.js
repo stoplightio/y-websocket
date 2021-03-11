@@ -9,6 +9,7 @@ const decoding = require('lib0/dist/decoding.cjs')
  * @param {Y.Doc} doc
  * @param {boolean} readOnly If true, updates will be silently ignored instead of applied.
  * @param {any} transactionOrigin
+ * @returns {number|undefined}
  */
 const readSyncMessage = (decoder, encoder, doc, readOnly = false, transactionOrigin) => {
   const messageType = decoding.readVarUint(decoder)
@@ -17,10 +18,12 @@ const readSyncMessage = (decoder, encoder, doc, readOnly = false, transactionOri
       syncProtocol.readSyncStep1(decoder, encoder, doc)
       break
     case syncProtocol.messageYjsSyncStep2:
-      if (!readOnly) syncProtocol.readSyncStep2(decoder, doc, transactionOrigin)
+      if (readOnly) return
+      syncProtocol.readSyncStep2(decoder, doc, transactionOrigin)
       break
     case syncProtocol.messageYjsUpdate:
-      if (!readOnly) syncProtocol.readUpdate(decoder, doc, transactionOrigin)
+      if (readOnly) return
+      syncProtocol.readUpdate(decoder, doc, transactionOrigin)
       break
     default:
       throw new Error('Unknown message type')
