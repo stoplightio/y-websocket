@@ -51,8 +51,11 @@ const readMessage = (provider, buf, emitSynced) => {
     case messageSync: {
       encoding.writeVarUint(encoder, messageSync)
       const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, provider.doc, provider)
-      if (emitSynced && syncMessageType === syncProtocol.messageYjsSyncStep2 && !provider.synced) {
-        provider.synced = true
+      if (emitSynced && syncMessageType === syncProtocol.messageYjsSyncStep2) {
+        if (!provider.synced) {
+          provider.synced = true
+        }
+        provider.emit('sync', [provider.synced])
       }
       break
     }
@@ -219,15 +222,7 @@ export class WebsocketProvider extends Observable {
      */
     this._resyncInterval = 0
     if (resyncInterval > 0) {
-      this._resyncInterval = setInterval(() => {
-        if (this.ws) {
-          // resend sync step 1
-          const encoder = encoding.createEncoder()
-          encoding.writeVarUint(encoder, messageSync)
-          syncProtocol.writeSyncStep1(encoder, doc)
-          this.ws.send(encoding.toUint8Array(encoder))
-        }
-      }, resyncInterval)
+      this._resyncInterval = setInterval(() => this.resync.bind(this), resyncInterval)
     }
 
     /**
@@ -293,7 +288,6 @@ export class WebsocketProvider extends Observable {
     if (this._synced !== state) {
       this._synced = state
       this.emit('synced', [state])
-      this.emit('sync', [state])
     }
   }
 
@@ -362,6 +356,16 @@ export class WebsocketProvider extends Observable {
     if (!this.wsconnected && this.ws === null) {
       setupWS(this)
       this.connectBc()
+    }
+  }
+
+  resync() {
+    if (this.ws) {
+      // resend sync step 1
+      const encoder = encoding.createEncoder()
+      encoding.writeVarUint(encoder, messageSync)
+      syncProtocol.writeSyncStep1(encoder, this.doc)
+      this.ws.send(encoding.toUint8Array(encoder))
     }
   }
 }
