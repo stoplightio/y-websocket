@@ -11,6 +11,22 @@ The Websocket Provider is a solid choice if you want a central source that handl
 
 ## Quick Start
 
+### Install dependencies
+
+```sh
+npm i y-websocket
+```
+
+### Start a y-websocket server
+
+This repository implements a basic server that you can adopt to your specific use-case. [(source code)](./bin/)
+
+Start a y-websocket server:
+
+```sh
+HOST=localhost PORT=1234 npx y-websocket-server
+```
+
 ### Client Code:
 
 ```js
@@ -69,7 +85,7 @@ wsOpts = {
   <b><code>wsProvider.bcconnected: boolean</code></b>
   <dd>True if this instance is currently communicating to other browser-windows via BroadcastChannel.</dd>
   <b><code>wsProvider.synced: boolean</code></b>
-  <dd>True if this instance is currently connected and synced with the server./dd>
+  <dd>True if this instance is currently connected and synced with the server.</dd>
   <b><code>wsProvider.disconnect()</code></b>
   <dd>Disconnect from the server and don't try to reconnect.</dd>
   <b><code>wsProvider.connect()</code></b>
@@ -102,7 +118,7 @@ HOST=localhost PORT=1234 YPERSISTENCE=./dbDir node ./node_modules/y-websocket/bi
 
 ### Websocket Server with HTTP callback
 
-Send a debounced callback to an HTTP server (`POST`) on document update.
+Send a debounced callback to an HTTP server (`POST`) on document update. Note that this implementation doesn't implement a retry logic in case the `CALLBACK_URL` does not work.
 
 Can take the following ENV variables:
 

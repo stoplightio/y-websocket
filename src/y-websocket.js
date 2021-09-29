@@ -9,22 +9,49 @@ Unlike stated in the LICENSE file, it is not necessary to include the copyright 
 /* eslint-env browser */
 
 import * as Y from 'yjs' // eslint-disable-line
-import * as bc from 'lib0/broadcastchannel.js'
-import * as time from 'lib0/time.js'
-import * as encoding from 'lib0/encoding.js'
-import * as decoding from 'lib0/decoding.js'
-import * as syncProtocol from 'y-protocols/sync.js'
-import * as authProtocol from 'y-protocols/auth.js'
-import * as awarenessProtocol from 'y-protocols/awareness.js'
-import * as mutex from 'lib0/mutex.js'
-import { Observable } from 'lib0/observable.js'
-import * as math from 'lib0/math.js'
-import * as url from 'lib0/url.js'
+import * as bc from 'lib0/broadcastchannel'
+import * as time from 'lib0/time'
+import * as encoding from 'lib0/encoding'
+import * as decoding from 'lib0/decoding'
+import * as syncProtocol from 'y-protocols/sync'
+import * as authProtocol from 'y-protocols/auth'
+import * as awarenessProtocol from 'y-protocols/awareness'
+import * as mutex from 'lib0/mutex'
+import { Observable } from 'lib0/observable'
+import * as math from 'lib0/math'
+import * as url from 'lib0/url'
 
 const messageSync = 0
 const messageQueryAwareness = 3
 const messageAwareness = 1
 const messageAuth = 2
+
+/**
+ *                       encoder,          decoder,          provider,          emitSynced, messageType
+ * @type {Array<function(encoding.Encoder, decoding.Decoder, WebsocketProvider, boolean,    number):void>}
+ */
+const messageHandlers = []
+
+messageHandlers[messageSync] = (encoder, decoder, provider, emitSynced, messageType) => {
+  encoding.writeVarUint(encoder, messageSync)
+  const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, provider.doc, provider)
+  if (emitSynced && syncMessageType === syncProtocol.messageYjsSyncStep2 && !provider.synced) {
+    provider.synced = true
+  }
+}
+
+messageHandlers[messageQueryAwareness] = (encoder, decoder, provider, emitSynced, messageType) => {
+  encoding.writeVarUint(encoder, messageAwareness)
+  encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(provider.awareness, Array.from(provider.awareness.getStates().keys())))
+}
+
+messageHandlers[messageAwareness] = (encoder, decoder, provider, emitSynced, messageType) => {
+  awarenessProtocol.applyAwarenessUpdate(provider.awareness, decoding.readVarUint8Array(decoder), provider)
+}
+
+messageHandlers[messageAuth] = (encoder, decoder, provider, emitSynced, messageType) => {
+  authProtocol.readAuthMessage(decoder, provider.doc, permissionDeniedHandler)
+}
 
 const reconnectTimeoutBase = 1200
 const maxReconnectTimeout = 2500
@@ -47,28 +74,11 @@ const readMessage = (provider, buf, emitSynced) => {
   const decoder = decoding.createDecoder(buf)
   const encoder = encoding.createEncoder()
   const messageType = decoding.readVarUint(decoder)
-  switch (messageType) {
-    case messageSync: {
-      encoding.writeVarUint(encoder, messageSync)
-      const syncMessageType = syncProtocol.readSyncMessage(decoder, encoder, provider.doc, provider)
-      if (emitSynced && syncMessageType === syncProtocol.messageYjsSyncStep2 && !provider.synced) {
-        provider.synced = true
-      }
-      break
-    }
-    case messageQueryAwareness:
-      encoding.writeVarUint(encoder, messageAwareness)
-      encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(provider.awareness, Array.from(provider.awareness.getStates().keys())))
-      break
-    case messageAwareness:
-      awarenessProtocol.applyAwarenessUpdate(provider.awareness, decoding.readVarUint8Array(decoder), provider)
-      break
-    case messageAuth:
-      authProtocol.readAuthMessage(decoder, provider.doc, permissionDeniedHandler)
-      break
-    default:
-      console.error('Unable to compute message')
-      return encoder
+  const messageHandler = provider.messageHandlers[messageType]
+  if (/** @type {any} */ (messageHandler)) {
+    messageHandler(encoder, decoder, provider, emitSynced, messageType)
+  } else {
+    console.error('Unable to compute message')
   }
   return encoder
 }
@@ -146,8 +156,7 @@ const setupWS = provider => {
  */
 const broadcastMessage = (provider, buf) => {
   if (provider.wsconnected) {
-    // @ts-ignore We know that wsconnected = true
-    provider.ws.send(buf)
+    /** @type {WebSocket} */ (provider.ws).send(buf)
   }
   if (provider.bcconnected) {
     provider.mux(() => {
@@ -198,6 +207,7 @@ export class WebsocketProvider extends Observable {
     this.wsconnecting = false
     this.bcconnected = false
     this.wsUnsuccessfulReconnects = 0
+    this.messageHandlers = messageHandlers.slice()
     this.mux = mutex.createMutex()
     /**
      * @type {boolean}
@@ -215,11 +225,11 @@ export class WebsocketProvider extends Observable {
     this.shouldConnect = connect
 
     /**
-     * @type {NodeJS.Timeout | number}
+     * @type {number}
      */
     this._resyncInterval = 0
     if (resyncInterval > 0) {
-      this._resyncInterval = setInterval(() => {
+      this._resyncInterval = /** @type {any} */ (setInterval(() => {
         if (this.ws) {
           // resend sync step 1
           const encoder = encoding.createEncoder()
@@ -227,7 +237,7 @@ export class WebsocketProvider extends Observable {
           syncProtocol.writeSyncStep1(encoder, doc)
           this.ws.send(encoding.toUint8Array(encoder))
         }
-      }, resyncInterval)
+      }, resyncInterval))
     }
 
     /**
@@ -247,7 +257,7 @@ export class WebsocketProvider extends Observable {
      * @param {any} origin
      */
     this._updateHandler = (update, origin) => {
-      if (origin !== this || origin === null) {
+      if (origin !== this) {
         const encoder = encoding.createEncoder()
         encoding.writeVarUint(encoder, messageSync)
         syncProtocol.writeUpdate(encoder, update)
@@ -266,17 +276,22 @@ export class WebsocketProvider extends Observable {
       encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients))
       broadcastMessage(this, encoding.toUint8Array(encoder))
     }
-    window.addEventListener('beforeunload', () => {
+    this._beforeUnloadHandler = () => {
       awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
-    })
+    }
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', this._beforeUnloadHandler)
+    } else if (typeof process !== 'undefined') {
+      process.on('exit', () => this._beforeUnloadHandler)
+    }
     awareness.on('update', this._awarenessUpdateHandler)
-    this._checkInterval = setInterval(() => {
+    this._checkInterval = /** @type {any} */ (setInterval(() => {
       if (this.wsconnected && messageReconnectTimeout < time.getUnixTime() - this.wsLastMessageReceived) {
         // no message received in a long time - not even your own awareness
         // updates (which are updated every 15 seconds)
         /** @type {WebSocket} */ (this.ws).close()
       }
-    }, messageReconnectTimeout / 10)
+    }, messageReconnectTimeout / 10))
     if (connect) {
       this.connect()
     }
@@ -299,10 +314,15 @@ export class WebsocketProvider extends Observable {
 
   destroy () {
     if (this._resyncInterval !== 0) {
-      clearInterval(/** @type {NodeJS.Timeout} */ (this._resyncInterval))
+      clearInterval(this._resyncInterval)
     }
     clearInterval(this._checkInterval)
     this.disconnect()
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this._beforeUnloadHandler)
+    } else if (typeof process !== 'undefined') {
+      process.off('exit', () => this._beforeUnloadHandler)
+    }
     this.awareness.off('update', this._awarenessUpdateHandler)
     this.doc.off('update', this._updateHandler)
     super.destroy()
