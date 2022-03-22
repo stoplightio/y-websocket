@@ -180,33 +180,37 @@ exports.getYDoc = getYDoc
  * @param {Uint8Array} message
  */
 const messageListener = async (conn, doc, message) => {
-  const encoder = encoding.createEncoder()
-  const decoder = decoding.createDecoder(message)
-  const messageType = decoding.readVarUint(decoder)
-  switch (messageType) {
-    case messageSync:
-      // await the doc state being updated from persistence, if available, otherwise
-      // we may send sync step 2 too early
-      if (doc.whenSynced) {
-        await doc.whenSynced
-      }
-      encoding.writeVarUint(encoder, messageSync)
-      const messageType = readSyncMessage(decoder, encoder, doc, conn.readOnly, null)
-      if (encoding.length(encoder) > 1) {
-        send(doc, conn, encoding.toUint8Array(encoder))
-      }
-      if (typeof conn.reportStats === 'function' && messageType !== void 0) {
-        conn.reportStats({
-          docName: doc.name,
-          messageType: messageType,
-          bytes: message.length
-        })
-      }
-      break
-    case messageAwareness: {
-      awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
-      break
+  try {
+    const encoder = encoding.createEncoder()
+    const decoder = decoding.createDecoder(message)
+    const messageType = decoding.readVarUint(decoder)
+    switch (messageType) {
+      case messageSync:
+        // await the doc state being updated from persistence, if available, otherwise
+        // we may send sync step 2 too early
+        if (doc.whenSynced) {
+          await doc.whenSynced
+        }
+        encoding.writeVarUint(encoder, messageSync)
+        const messageType = readSyncMessage(decoder, encoder, doc, conn.readOnly, null)
+        if (encoding.length(encoder) > 1) {
+          send(doc, conn, encoding.toUint8Array(encoder))
+        }
+        if (typeof conn.reportStats === 'function' && messageType !== void 0) {
+          conn.reportStats({
+            docName: doc.name,
+            messageType: messageType,
+            bytes: message.length
+          })
+        }
+        break
+      case messageAwareness:
+        awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
+        break
     }
+  } catch (err) {
+    console.error(err)
+    doc.emit('error', [err])
   }
 }
 
