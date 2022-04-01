@@ -1,0 +1,21 @@
+version: 2.1
+
+jobs:
+  test_and_release:
+    docker:
+      - image:  cimg/node:16.13
+    steps:
+      - checkout
+      - run: npm install
+      - run: npm test
+      - run: npm run dist
+      - when:
+          condition:
+            equal: [ master, << pipeline.git.branch >> ]
+          steps:
+            - run: npm publish
+
+workflows:
+  test_and_release:
+    jobs:
+      - test_and_release
