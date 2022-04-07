@@ -210,7 +210,6 @@ const messageListener = async (conn, doc, message) => {
       }
     }
   } catch (err) {
-    console.error(err)
     doc.emit('error', [err])
   }
 }
