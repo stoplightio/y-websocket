@@ -18,6 +18,14 @@ const readSyncMessage = require('./readSyncMessageFork.js').readSyncMessage
 
 const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
 const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT) || 10000
+let WRITE_STATE_DEBOUNCE_WAIT = 0
+
+/**
+ * @param {number} wait
+ */
+exports.setWriteStateDebounceWait = wait => {
+  WRITE_STATE_DEBOUNCE_WAIT = wait
+}
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
@@ -228,11 +236,17 @@ const closeConn = (doc, conn) => {
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
     if (doc.conns.size === 0 && persistence !== null) {
-      // if persisted, we store state and destroy ydocument
-      persistence.writeState(doc.name, doc).then(() => {
-        doc.destroy()
-      })
-      docs.delete(doc.name)
+      setTimeout(() => {
+        if (doc.conns.size === 0) {
+          // if persisted, we store state and destroy ydocument
+          persistence.writeState(doc.name, doc).then(async () => {
+            if (doc.conns.size === 0) {
+              docs.delete(doc.name)
+              doc.destroy()
+            }
+          })
+        }
+      }, WRITE_STATE_DEBOUNCE_WAIT)
     }
   }
   conn.close()
