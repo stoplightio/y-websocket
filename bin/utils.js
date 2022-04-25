@@ -18,6 +18,14 @@ const readSyncMessage = require('./readSyncMessageFork.js').readSyncMessage
 
 const CALLBACK_DEBOUNCE_WAIT = parseInt(process.env.CALLBACK_DEBOUNCE_WAIT) || 2000
 const CALLBACK_DEBOUNCE_MAXWAIT = parseInt(process.env.CALLBACK_DEBOUNCE_MAXWAIT) || 10000
+let WRITE_STATE_DEBOUNCE_WAIT = 0
+
+/**
+ * @param {number} wait
+ */
+exports.setWriteStateDebounceWait = wait => {
+  WRITE_STATE_DEBOUNCE_WAIT = wait
+}
 
 const wsReadyStateConnecting = 0
 const wsReadyStateOpen = 1
@@ -75,6 +83,12 @@ exports.docs = docs
 const messageSync = 0
 const messageAwareness = 1
 // const messageAuth = 2
+
+/**
+ * @type {Map<string, number>}
+ */
+const closingTimeouts = new Map()
+exports.closingTimeouts = closingTimeouts
 
 /**
  * @param {Uint8Array} update
@@ -228,14 +242,42 @@ const closeConn = (doc, conn) => {
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
     if (doc.conns.size === 0 && persistence !== null) {
-      // if persisted, we store state and destroy ydocument
-      persistence.writeState(doc.name, doc).then(() => {
-        doc.destroy()
-      })
-      docs.delete(doc.name)
+      cancelClosing(doc.name)
+      closingTimeouts.set(
+        doc.name,
+        setTimeout(
+          () => {
+            closingTimeouts.delete(doc.name)
+            if (doc.conns.size === 0) {
+              // if persisted, we store state and destroy ydocument
+              persistence.writeState(doc.name, doc)
+                .then(
+                  async () => {
+                    if (doc.conns.size === 0) {
+                      docs.delete(doc.name)
+                      doc.destroy()
+                    }
+                  }
+                )
+            }
+          },
+          WRITE_STATE_DEBOUNCE_WAIT
+        )
+      )
     }
   }
   conn.close()
+}
+
+/**
+ * @param {string} docName
+ */
+const cancelClosing = (docName) => {
+  const timeout = closingTimeouts.get(docName)
+  if (timeout) {
+    clearTimeout(timeout)
+    closingTimeouts.delete(docName)
+  }
 }
 
 /**
@@ -265,6 +307,7 @@ const pingTimeout = 30000
  */
 exports.setupWSConnection = async (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
+  cancelClosing(docName)
   // get doc, initialize if it does not exist yet
   const doc = getYDoc(docName, gc, conn)
   doc.conns.set(conn, new Set())
