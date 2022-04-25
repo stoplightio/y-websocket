@@ -272,7 +272,7 @@ const closeConn = (doc, conn) => {
 /**
  * @param {string} docName
  */
-export const cancelClosing = (docName) => {
+const cancelClosing = (docName) => {
   const timeout = closingTimeouts.get(docName)
   if (timeout) {
     clearTimeout(timeout)
