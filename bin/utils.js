@@ -307,6 +307,7 @@ const pingTimeout = 30000
  */
 exports.setupWSConnection = async (conn, req, { docName = req.url.slice(1).split('?')[0], gc = true } = {}) => {
   conn.binaryType = 'arraybuffer'
+  cancelClosing(docName)
   // get doc, initialize if it does not exist yet
   const doc = getYDoc(docName, gc, conn)
   doc.conns.set(conn, new Set())
