@@ -85,6 +85,12 @@ const messageAwareness = 1
 // const messageAuth = 2
 
 /**
+ * @type {Map<string, number>}
+ */
+const closingTimeouts = new Map()
+exports.closingTimeouts = this.closingTimeouts
+
+/**
  * @param {Uint8Array} update
  * @param {any} origin
  * @param {WSSharedDoc} doc
@@ -236,20 +242,42 @@ const closeConn = (doc, conn) => {
     doc.conns.delete(conn)
     awarenessProtocol.removeAwarenessStates(doc.awareness, Array.from(controlledIds), null)
     if (doc.conns.size === 0 && persistence !== null) {
-      setTimeout(() => {
-        if (doc.conns.size === 0) {
-          // if persisted, we store state and destroy ydocument
-          persistence.writeState(doc.name, doc).then(async () => {
+      cancelClosing(doc.name)
+      closingTimeouts.set(
+        doc.name,
+        setTimeout(
+          () => {
+            closingTimeouts.delete(doc.name)
             if (doc.conns.size === 0) {
-              docs.delete(doc.name)
-              doc.destroy()
+              // if persisted, we store state and destroy ydocument
+              persistence.writeState(doc.name, doc)
+                .then(
+                  async () => {
+                    if (doc.conns.size === 0) {
+                      docs.delete(doc.name)
+                      doc.destroy()
+                    }
+                  }
+                )
             }
-          })
-        }
-      }, WRITE_STATE_DEBOUNCE_WAIT)
+          },
+          WRITE_STATE_DEBOUNCE_WAIT
+        )
+      )
     }
   }
   conn.close()
+}
+
+/**
+ * @param {string} docName
+ */
+export const cancelClosing = (docName) => {
+  const timeout = closingTimeouts.get(docName)
+  if (timeout) {
+    clearTimeout(timeout)
+    closingTimeouts.delete(docName)
+  }
 }
 
 /**
