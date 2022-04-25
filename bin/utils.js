@@ -88,7 +88,7 @@ const messageAwareness = 1
  * @type {Map<string, number>}
  */
 const closingTimeouts = new Map()
-exports.closingTimeouts = this.closingTimeouts
+exports.closingTimeouts = closingTimeouts
 
 /**
  * @param {Uint8Array} update
