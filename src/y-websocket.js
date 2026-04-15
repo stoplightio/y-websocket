@@ -263,7 +263,7 @@ export class WebsocketProvider extends Observable {
         const encoder = encoding.createEncoder()
         encoding.writeVarUint(encoder, messageSync)
         syncProtocol.writeUpdate(encoder, update)
-        broadcastMessage(this, encoding.toUint8Array(encoder))
+        broadcastMessage(this, encoding.toUint8Array(encoder).buffer)
       }
     }
     this.doc.on('update', this._updateHandler)
@@ -276,7 +276,7 @@ export class WebsocketProvider extends Observable {
       const encoder = encoding.createEncoder()
       encoding.writeVarUint(encoder, messageAwareness)
       encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(awareness, changedClients))
-      broadcastMessage(this, encoding.toUint8Array(encoder))
+      broadcastMessage(this, encoding.toUint8Array(encoder).buffer)
     }
     this._beforeUnloadHandler = () => {
       awarenessProtocol.removeAwarenessStates(this.awareness, [doc.clientID], 'window unload')
@@ -364,7 +364,7 @@ export class WebsocketProvider extends Observable {
     const encoder = encoding.createEncoder()
     encoding.writeVarUint(encoder, messageAwareness)
     encoding.writeVarUint8Array(encoder, awarenessProtocol.encodeAwarenessUpdate(this.awareness, [this.doc.clientID], new Map()))
-    broadcastMessage(this, encoding.toUint8Array(encoder))
+    broadcastMessage(this, encoding.toUint8Array(encoder).buffer)
     if (this.bcconnected) {
       bc.unsubscribe(this.bcChannel, this._bcSubscriber)
       this.bcconnected = false
