@@ -57,10 +57,11 @@
   "dependencies": {
     "lib0": "^0.2.42",
     "lodash.debounce": "^4.0.8",
+    "minimatch": "^10.2.5",
     "y-protocols": "^1.0.5"
   },
   "devDependencies": {
-    "rollup": "^4.59.0",
+    "rollup": "^4.60.1",
     "rollup-cli": "^1.0.9",
     "standard": "^17.1.2",
     "typescript": "^3.9.9",
@@ -70,8 +71,8 @@
     "yjs": "^13.5.6"
   },
   "optionalDependencies": {
+    "flatted": "^3.4.1",
     "ws": "^6.2.1",
-    "y-leveldb": "^0.1.0",
-    "flatted": "^3.4.1"
+    "y-leveldb": "^0.1.0"
   }
 }
