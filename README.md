@@ -1,7 +1,8 @@
 
 # y-websocket :tophat:
 > WebSocket Provider for Yjs
-> (v1.4.3) Resolve critical and major vulnerabilities
+> (v1.4.3) Resolve critical and major vulnerabilities 
+> Update node version of package support to node 20
 
 The Websocket Provider implements a classical client server model. Clients connect to a single endpoint over Websocket. The server distributes awareness information and document updates among clients.
 
