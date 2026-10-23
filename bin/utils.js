@@ -127,7 +127,7 @@ class WSSharedDoc extends Y.Doc {
     /**
      * @type {Promise<void>|void}
      */
-    this.whenSynced = void 0
+    this.whenSynced = undefined
     /**
      * @param {{ added: Array<number>, updated: Array<number>, removed: Array<number> }} changes
      * @param {Object | null} conn Origin is the connection that made the change
@@ -197,27 +197,28 @@ const messageListener = async (conn, doc, message) => {
   try {
     const encoder = encoding.createEncoder()
     const decoder = decoding.createDecoder(message)
-    const messageType = decoding.readVarUint(decoder)
-    switch (messageType) {
-      case messageSync:
+    const msgType = decoding.readVarUint(decoder)
+    switch (msgType) {
+      case messageSync: {
         // await the doc state being updated from persistence, if available, otherwise
         // we may send sync step 2 too early
         if (doc.whenSynced) {
           await doc.whenSynced
         }
         encoding.writeVarUint(encoder, messageSync)
-        const messageType = readSyncMessage(decoder, encoder, doc, conn.readOnly, null)
+        const syncMsgType = readSyncMessage(decoder, encoder, doc, conn.readOnly, null)
         if (encoding.length(encoder) > 1) {
           send(doc, conn, encoding.toUint8Array(encoder))
         }
-        if (typeof conn.reportStats === 'function' && messageType !== void 0) {
+        if (typeof conn.reportStats === 'function' && syncMsgType !== undefined) {
           conn.reportStats({
             docName: doc.name,
-            messageType: messageType,
+            messageType: syncMsgType,
             bytes: message.length
           })
         }
         break
+      }
       case messageAwareness: {
         awarenessProtocol.applyAwarenessUpdate(doc.awareness, decoding.readVarUint8Array(decoder), conn)
         break
