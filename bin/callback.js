@@ -10,7 +10,7 @@ exports.isCallbackSet = !!CALLBACK_URL
 /**
  * @param {Uint8Array} update
  * @param {any} origin
- * @param {WSSharedDoc} doc
+ * @param {import('yjs').Doc & { name: string }} doc
  */
 exports.callbackHandler = (update, origin, doc) => {
   const room = doc.name
@@ -63,7 +63,7 @@ const callbackRequest = (url, timeout, data) => {
 /**
  * @param {string} objName
  * @param {string} objType
- * @param {WSSharedDoc} doc
+ * @param {import('yjs').Doc & { name: string }} doc
  */
 const getContent = (objName, objType, doc) => {
   switch (objType) {

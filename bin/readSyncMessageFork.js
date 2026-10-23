@@ -4,9 +4,9 @@ const syncProtocol = require('y-protocols/dist/sync.cjs')
 const decoding = require('lib0/dist/decoding.cjs')
 
 /**
- * @param {decoding.Decoder} decoder A message received from another client
- * @param {encoding.Encoder} encoder The reply message. Will not be sent if empty.
- * @param {Y.Doc} doc
+ * @param {import('lib0/decoding').Decoder} decoder A message received from another client
+ * @param {import('lib0/encoding').Encoder} encoder The reply message. Will not be sent if empty.
+ * @param {import('yjs').Doc} doc
  * @param {boolean} readOnly If true, updates will be silently ignored instead of applied.
  * @param {any} transactionOrigin
  * @returns {number|undefined}
